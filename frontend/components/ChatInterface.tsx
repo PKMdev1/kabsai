@@ -1,79 +1,52 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Send, Bot, User } from 'lucide-react'
+import { useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
 interface Message {
-  id: number
+  id: string
   content: string
-  message_type: 'user' | 'assistant'
-  created_at: string
-  context_files?: number[]
-  context_chunks?: number[]
-  tokens_used?: number
-  model_used?: string
-  response_time?: number
+  isUser: boolean
+  timestamp: Date
 }
 
 export default function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [inputMessage, setInputMessage] = useState('')
+  const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
 
   const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
+    if (!input.trim() || isLoading) return
 
-    const userMessage = {
-      id: Date.now(),
-      content: inputMessage,
-      message_type: 'user' as const,
-      created_at: new Date().toISOString(),
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: input,
+      isUser: true,
+      timestamp: new Date(),
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInputMessage('')
+    setInput('')
     setIsLoading(true)
 
     try {
       const response = await axios.post('/api/v1/chat/', {
-        message: inputMessage,
-        session_id: sessionId,
+        message: input,
+        session_id: 'default_session'
       })
 
       const assistantMessage: Message = {
-        id: response.data.session_id + Date.now(),
+        id: (Date.now() + 1).toString(),
         content: response.data.response,
-        message_type: 'assistant',
-        created_at: new Date().toISOString(),
-        context_files: response.data.context_files,
-        context_chunks: response.data.context_chunks,
-        tokens_used: response.data.tokens_used,
-        model_used: response.data.model_used,
-        response_time: response.data.response_time,
+        isUser: false,
+        timestamp: new Date(),
       }
 
-      setSessionId(response.data.session_id)
       setMessages(prev => [...prev, assistantMessage])
     } catch (error) {
-      console.error('Error sending message:', error)
+      console.error('Chat error:', error)
       toast.error('Failed to send message. Please try again.')
-      
-      // Remove the user message if the request failed
-      setMessages(prev => prev.filter(msg => msg.id !== userMessage.id))
     } finally {
       setIsLoading(false)
     }
@@ -86,164 +59,78 @@ export default function ChatInterface() {
     }
   }
 
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
-  }
-
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Chat Header */}
-      <div className="border-b border-elite-200 px-6 py-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-kabs-600 rounded-lg flex items-center justify-center">
-            <Bot className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-elite-900">KABS AI Assistant</h2>
-            <p className="text-sm text-elite-600">Ask questions about your documents</p>
-          </div>
-        </div>
+    <div className="card h-[600px] flex flex-col">
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Chat with AI Assistant
+        </h2>
+        <p className="text-gray-600 dark:text-gray-300">
+          Ask questions about your uploaded documents
+        </p>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-kabs-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bot className="w-8 h-8 text-kabs-600" />
-            </div>
-            <h3 className="text-lg font-medium text-elite-900 mb-2">Welcome to KABS Assistant</h3>
-            <p className="text-elite-600 max-w-md mx-auto">
-              Upload documents to the Files section, then ask me questions about them. 
-              I'll search through your documents and provide relevant answers.
-            </p>
+      <div className="flex-1 overflow-y-auto space-y-4 mb-4 p-4">
+        {messages.length === 0 ? (
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8">
+            <p>Start a conversation by typing a message below</p>
           </div>
-        )}
-
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.message_type === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+        ) : (
+          messages.map((message) => (
             <div
-              className={`max-w-3xl rounded-lg p-4 ${
-                message.message_type === 'user'
-                  ? 'bg-kabs-600 text-white'
-                  : 'bg-elite-50 border border-elite-200'
-              }`}
+              key={message.id}
+              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
             >
-              <div className="flex items-start space-x-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.message_type === 'user' 
-                    ? 'bg-kabs-500' 
-                    : 'bg-kabs-100'
-                }`}>
-                  {message.message_type === 'user' ? (
-                    <User className="w-3 h-3 text-white" />
-                  ) : (
-                    <Bot className="w-3 h-3 text-kabs-600" />
-                  )}
-                </div>
-                
-                <div className="flex-1">
-                  <div className={`${
-                    message.message_type === 'user' 
-                      ? 'text-white' 
-                      : 'text-elite-900'
-                  }`}>
-                    <ReactMarkdown 
-                      remarkPlugins={[remarkGfm]}
-                      className="prose prose-sm max-w-none"
-                      components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        code: ({ children }) => (
-                          <code className="bg-elite-200 px-1 py-0.5 rounded text-sm">
-                            {children}
-                          </code>
-                        ),
-                        pre: ({ children }) => (
-                          <pre className="bg-elite-100 p-3 rounded-lg overflow-x-auto text-sm">
-                            {children}
-                          </pre>
-                        ),
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                  
-                  {message.message_type === 'assistant' && message.context_files && message.context_files.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-elite-200">
-                      <p className="text-xs text-elite-600">
-                        Sources: {message.context_files.length} document(s) referenced
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className={`text-xs mt-2 ${
-                    message.message_type === 'user' 
-                      ? 'text-kabs-200' 
-                      : 'text-elite-500'
-                  }`}>
-                    {formatTime(message.created_at)}
-                    {message.message_type === 'assistant' && message.response_time && (
-                      <span> • {message.response_time}ms</span>
-                    )}
-                  </div>
-                </div>
+              <div
+                className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                  message.isUser
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{message.content}</p>
+                <p className="text-xs opacity-70 mt-1">
+                  {message.timestamp.toLocaleTimeString()}
+                </p>
               </div>
             </div>
-          </div>
-        ))}
-
+          ))
+        )}
+        
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-elite-50 border border-elite-200 rounded-lg p-4 max-w-3xl">
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 bg-kabs-100 rounded-full flex items-center justify-center">
-                  <Bot className="w-3 h-3 text-kabs-600" />
-                </div>
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-kabs-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-kabs-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-kabs-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
+              <div className="flex space-x-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
               </div>
             </div>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <div className="border-t border-elite-200 p-6">
-        <div className="flex space-x-4">
-          <div className="flex-1">
-            <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask a question about your documents..."
-              className="w-full px-4 py-3 border border-elite-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-kabs-500 focus:border-transparent resize-none"
-              rows={1}
-              disabled={isLoading}
-            />
-          </div>
+      <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex space-x-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Type your message..."
+            className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            rows={2}
+            disabled={isLoading}
+          />
           <button
             onClick={sendMessage}
-            disabled={!inputMessage.trim() || isLoading}
-            className="px-6 py-3 bg-kabs-600 text-white rounded-lg hover:bg-kabs-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            disabled={!input.trim() || isLoading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send className="w-5 h-5" />
+            Send
           </button>
         </div>
-        <p className="text-xs text-elite-500 mt-2">
-          Press Enter to send, Shift+Enter for new line
-        </p>
       </div>
     </div>
   )

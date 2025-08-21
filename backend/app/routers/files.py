@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from ..database import get_db
 from ..models import User, File as FileModel, FileChunk
 from ..schemas import File as FileSchema, FileCreate, FileUpdate, FileUploadResponse, SearchRequest, SearchResponse, SearchResult
-from ..auth import get_current_active_user, get_current_admin_user
+# Authentication removed - no user system
 from ..file_processor import file_processor
 from ..rag_engine import rag_engine
 from ..config import settings
@@ -26,7 +26,6 @@ async def upload_file(
     tags: Optional[str] = Form(None),  # JSON string
     project: Optional[str] = Form(None),
     department: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Upload a file to the vault"""
@@ -78,8 +77,8 @@ async def upload_file(
         tags=tag_list,
         project=project,
         department=department,
-        owner_id=current_user.id,
-        uploaded_by=current_user.id,
+        owner_id=1,  # Default user ID
+        uploaded_by=1,  # Default user ID
         is_processed=result['success'],
         embedding_status="pending" if result['success'] else "failed"
     )
@@ -106,7 +105,7 @@ async def upload_file(
         tags=db_file.tags,
         project=db_file.project,
         department=db_file.department,
-        upload_date=db_file.upload_date,
+                    upload_date=db_file.created_at,
         is_processed=db_file.is_processed,
         embedding_status=db_file.embedding_status,
         message="File uploaded successfully"
@@ -118,7 +117,6 @@ async def upload_multiple_files(
     files: List[UploadFile] = File(...),
     project: Optional[str] = Form(None),
     department: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Upload multiple files to the vault with batch processing"""
@@ -172,8 +170,8 @@ async def upload_multiple_files(
             tags=[],
             project=project,
             department=department,
-            owner_id=current_user.id,
-            uploaded_by=current_user.id,
+            owner_id=1,  # Default user ID
+            uploaded_by=1,  # Default user ID
             is_processed=result['success'],
             embedding_status="pending" if result['success'] else "failed"
         )
@@ -197,7 +195,7 @@ async def upload_multiple_files(
             tags=db_file.tags,
             project=db_file.project,
             department=db_file.department,
-            upload_date=db_file.upload_date,
+            upload_date=db_file.created_at,
             is_processed=db_file.is_processed,
             embedding_status=db_file.embedding_status,
             message="File uploaded successfully"
@@ -217,7 +215,6 @@ async def upload_multiple_files(
 @router.post("/reindex-batch")
 async def reindex_multiple_files(
     file_ids: List[int],
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Reindex multiple files for RAG processing"""
@@ -225,14 +222,11 @@ async def reindex_multiple_files(
     if not file_ids:
         raise HTTPException(status_code=400, detail="No file IDs provided")
     
-    # Verify user owns these files
-    user_files = db.query(FileModel).filter(
-        FileModel.id.in_(file_ids),
-        FileModel.uploaded_by == current_user.id
-    ).all()
+    # No user verification needed - open access
+    user_files = db.query(FileModel).filter(FileModel.id.in_(file_ids)).all()
     
     if len(user_files) != len(file_ids):
-        raise HTTPException(status_code=403, detail="Access denied to some files")
+        raise HTTPException(status_code=404, detail="Some files not found")
     
     # Process files for RAG
     try:
@@ -253,7 +247,6 @@ async def list_files(
     project: Optional[str] = Query(None),
     department: Optional[str] = Query(None),
     file_type: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """List files with optional filtering"""
@@ -289,7 +282,6 @@ async def list_files(
 @router.get("/{file_id}", response_model=FileSchema)
 async def get_file(
     file_id: int,
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get file details"""
@@ -304,7 +296,6 @@ async def get_file(
 @router.get("/{file_id}/download")
 async def download_file(
     file_id: int,
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Download a file"""
@@ -327,7 +318,6 @@ async def download_file(
 async def update_file(
     file_id: int,
     file_update: FileUpdate,
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Update file metadata"""
@@ -336,9 +326,7 @@ async def update_file(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     
-    # Check permissions
-    if file.owner_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not authorized to update this file")
+    # No permission check needed - open access
     
     # Update fields
     update_data = file_update.dict(exclude_unset=True)
@@ -354,7 +342,6 @@ async def update_file(
 @router.delete("/{file_id}")
 async def delete_file(
     file_id: int,
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Delete a file"""
@@ -363,9 +350,7 @@ async def delete_file(
     if not file:
         raise HTTPException(status_code=404, detail="File not found")
     
-    # Check permissions
-    if file.owner_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this file")
+    # No permission check needed - open access
     
     # Delete file chunks
     db.query(FileChunk).filter(FileChunk.file_id == file_id).delete()
@@ -384,7 +369,6 @@ async def delete_file(
 @router.post("/search", response_model=SearchResponse)
 async def search_files(
     search_request: SearchRequest,
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Search files using RAG"""
@@ -422,7 +406,6 @@ async def search_files(
 
 @router.get("/projects/list")
 async def list_projects(
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get list of all projects"""
@@ -436,7 +419,6 @@ async def list_projects(
 
 @router.get("/departments/list")
 async def list_departments(
-    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """Get list of all departments"""

@@ -82,11 +82,10 @@ async def get_current_admin_user(current_user: User = Depends(get_current_active
     return current_user
 
 
-def create_user(db: Session, username: str, email: str, full_name: str, password: str, role: str = "viewer") -> User:
+def create_user(db: Session, username: str, full_name: str, password: str, role: str = "viewer") -> User:
     hashed_password = get_password_hash(password)
     db_user = User(
         username=username,
-        email=email,
         full_name=full_name,
         hashed_password=hashed_password,
         role=role

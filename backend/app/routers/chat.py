@@ -7,7 +7,7 @@ from datetime import datetime
 
 from ..database import get_db
 from ..models import User, ChatMessage, File
-from ..auth import get_current_user
+# Authentication removed - no user system
 from ..rag_engine import rag_engine
 from ..schemas import ChatRequest, ChatResponse
 
@@ -16,8 +16,7 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 @router.post("/", response_model=ChatResponse)
 async def chat_with_rag(
     request: ChatRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """Chat with RAG-powered assistant for laser-focused responses from ALL files."""
     
@@ -28,13 +27,13 @@ async def chat_with_rag(
         start_time = time.time()
         
         # Generate session ID if not provided
-        session_id = request.session_id or f"session_{current_user.id}_{int(time.time())}"
+        session_id = request.session_id or f"session_{int(time.time())}"
         
         # Use RAG engine to get response (searches ALL files by default)
         rag_result = rag_engine.chat_with_rag(
             db=db,
             query=request.message,
-            user_id=current_user.id,
+            user_id=1,  # Default user ID
             session_id=session_id,
             context_files=request.context_files,  # If None, searches ALL files
             pricing_focus=pricing_focus  # Enable pricing focus for pricing queries
@@ -45,7 +44,7 @@ async def chat_with_rag(
         
         # Save user message to database
         user_message = ChatMessage(
-            user_id=current_user.id,
+            user_id=1,  # Default user ID
             session_id=session_id,
             message_type="user",
             content=request.message,
@@ -55,7 +54,7 @@ async def chat_with_rag(
         
         # Save assistant response to database with enhanced metadata
         assistant_message = ChatMessage(
-            user_id=current_user.id,
+            user_id=1,  # Default user ID
             session_id=session_id,
             message_type="assistant",
             content=rag_result['response'],
@@ -90,18 +89,17 @@ async def chat_with_rag(
 async def search_pricing_files(
     query: str,
     limit: int = 20,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """Specialized search for pricing-related content across all files."""
     
     try:
-        # Use specialized pricing search
+                # Use specialized pricing search
         similar_chunks = rag_engine.search_pricing_specific(
-            db=db, 
-            query=query, 
-            limit=limit, 
-            user_id=current_user.id
+            db=db,
+            query=query,
+            limit=limit,
+            user_id=1  # Default user ID
         )
         
         # Group results by file

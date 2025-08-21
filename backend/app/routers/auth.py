@@ -15,21 +15,18 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """Register a new user"""
     # Check if user already exists
-    existing_user = db.query(User).filter(
-        (User.username == user_data.username) | (User.email == user_data.email)
-    ).first()
+    existing_user = db.query(User).filter(User.username == user_data.username).first()
     
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username or email already registered"
+            detail="Username already registered"
         )
     
     # Create new user
     user = create_user(
         db=db,
         username=user_data.username,
-        email=user_data.email,
         full_name=user_data.full_name,
         password=user_data.password,
         role=user_data.role

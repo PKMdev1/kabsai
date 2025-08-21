@@ -32,7 +32,8 @@
     "react-hot-toast": "^2.4.1",
     "date-fns": "^2.30.0",
     "react-markdown": "^9.0.1",
-    "remark-gfm": "^4.0.0"
+    "remark-gfm": "^4.0.0",
+    "@radix-ui/react-tabs": "^1.0.4"
   },
   "devDependencies": {
     "eslint": "^8.53.0",

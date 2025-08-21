@@ -31,7 +31,12 @@ class Settings(BaseSettings):
     max_file_size: int = 0  # No limit - unlimited file size
     
     # CORS
-    allowed_origins: list = ["http://localhost:3000", "http://localhost:3001"]
+    allowed_origins: list = [
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "https://*.vercel.app",
+        "https://*.railway.app"
+    ]
     
     class Config:
         env_file = ".env"

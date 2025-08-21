@@ -7,7 +7,7 @@ import os
 
 from ..database import get_db
 from ..models import User, File as FileModel
-from ..auth import get_current_user
+# Authentication removed - no user system
 from ..file_processor import FileProcessor
 from ..schemas import XMLSearchRequest, XMLMatchResponse, XMLSchemaResponse
 
@@ -23,8 +23,7 @@ async def upload_xml_file(
     tags: str = Form(""),
     project: str = Form(""),
     department: str = Form(""),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """Upload and process XML file with data extraction."""
     
@@ -54,11 +53,12 @@ async def upload_xml_file(
             description=description,
             file_type="xml",
             file_size=len(content),
-            uploader_id=current_user.id,
+            owner_id=1,  # Default user ID
+            uploaded_by=1,  # Default user ID
             tags=tags,
             project=project,
             department=department,
-            metadata=json.dumps({
+            file_metadata=json.dumps({
                 'xml_data': xml_data,
                 'xml_schema': xml_schema,
                 'root_element': xml_data.get('root_tag'),
@@ -86,25 +86,23 @@ async def upload_xml_file(
 @router.post("/search", response_model=List[XMLMatchResponse])
 async def search_xml_data(
     request: XMLSearchRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """Search XML data across uploaded files."""
     
     try:
         # Get XML files from database
         xml_files = db.query(FileModel).filter(
-            FileModel.file_type == "xml",
-            FileModel.uploader_id == current_user.id
+            FileModel.file_type == "xml"
         ).all()
         
         all_matches = []
         
         for file_record in xml_files:
-            if not file_record.metadata:
+            if not file_record.file_metadata:
                 continue
                 
-            metadata = json.loads(file_record.metadata)
+            metadata = json.loads(file_record.file_metadata)
             xml_data = metadata.get('xml_data', {})
             
             # Search in XML data
@@ -135,17 +133,17 @@ async def get_xml_schema(
     file_record = db.query(FileModel).filter(
         FileModel.id == file_id,
         FileModel.file_type == "xml",
-        FileModel.uploader_id == current_user.id
+        FileModel.owner_id == current_user.id
     ).first()
     
     if not file_record:
         raise HTTPException(status_code=404, detail="XML file not found")
     
-    if not file_record.metadata:
+    if not file_record.file_metadata:
         raise HTTPException(status_code=400, detail="No schema information available")
     
     try:
-        metadata = json.loads(file_record.metadata)
+        metadata = json.loads(file_record.file_metadata)
         schema = metadata.get('xml_schema', {})
         
         return XMLSchemaResponse(
@@ -168,17 +166,17 @@ async def get_xml_structure(
     file_record = db.query(FileModel).filter(
         FileModel.id == file_id,
         FileModel.file_type == "xml",
-        FileModel.uploader_id == current_user.id
+        FileModel.owner_id == current_user.id
     ).first()
     
     if not file_record:
         raise HTTPException(status_code=404, detail="XML file not found")
     
-    if not file_record.metadata:
+    if not file_record.file_metadata:
         raise HTTPException(status_code=400, detail="No structure information available")
     
     try:
-        metadata = json.loads(file_record.metadata)
+        metadata = json.loads(file_record.file_metadata)
         xml_data = metadata.get('xml_data', {})
         
         return {
@@ -205,14 +203,14 @@ async def validate_xml_structure(
     file_record = db.query(FileModel).filter(
         FileModel.id == file_id,
         FileModel.file_type == "xml",
-        FileModel.uploader_id == current_user.id
+        FileModel.owner_id == current_user.id
     ).first()
     
     if not file_record:
         raise HTTPException(status_code=404, detail="XML file not found")
     
     try:
-        metadata = json.loads(file_record.metadata)
+        metadata = json.loads(file_record.file_metadata)
         xml_data = metadata.get('xml_data', {})
         
         validation_results = []
@@ -264,12 +262,12 @@ async def list_xml_files(
     
     xml_files = db.query(FileModel).filter(
         FileModel.file_type == "xml",
-        FileModel.uploader_id == current_user.id
+        FileModel.owner_id == current_user.id
     ).all()
     
     files_list = []
     for file_record in xml_files:
-        metadata = json.loads(file_record.metadata) if file_record.metadata else {}
+        metadata = json.loads(file_record.file_metadata) if file_record.file_metadata else {}
         xml_data = metadata.get('xml_data', {})
         
         files_list.append({
@@ -277,7 +275,7 @@ async def list_xml_files(
             "filename": file_record.filename,
             "title": file_record.title,
             "description": file_record.description,
-            "upload_date": file_record.upload_date.isoformat(),
+            "upload_date": file_record.created_at.isoformat(),
             "root_element": xml_data.get('root_tag'),
             "element_count": len(xml_data.get('elements', [])),
             "file_size": file_record.file_size,

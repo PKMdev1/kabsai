@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine
 from app.models import Base
-from app.routers import auth, files, chat, xml_processor
+from app.routers import files, chat, xml_processor
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -24,7 +24,6 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router, prefix="/api/v1")
 app.include_router(files.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(xml_processor.router, prefix="/api/v1")

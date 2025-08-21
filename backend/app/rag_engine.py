@@ -697,7 +697,7 @@ Remember: For pricing queries, prioritize finding exact prices, matching product
             # Get recent files
             recent_files = db.query(File).filter(
                 File.uploaded_by == user_id
-            ).order_by(File.upload_date.desc()).limit(5).all()
+            ).order_by(File.created_at.desc()).limit(5).all()
             
             return {
                 'total_files': total_files,
@@ -713,7 +713,7 @@ Remember: For pricing queries, prioritize finding exact prices, matching product
                         'filename': f.original_filename,
                         'title': f.title,
                         'file_type': f.file_type,
-                        'upload_date': f.upload_date.isoformat(),
+                        'upload_date': f.created_at.isoformat(),
                         'is_indexed': f.is_indexed
                     } for f in recent_files
                 ]

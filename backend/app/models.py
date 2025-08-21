@@ -9,7 +9,6 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
     full_name = Column(String)
     hashed_password = Column(String)
     is_active = Column(Boolean, default=True)
@@ -41,6 +40,7 @@ class File(Base):
     tags = Column(JSON)  # List of tags
     project = Column(String, index=True)
     department = Column(String, index=True)
+    file_metadata = Column(JSON)  # Additional file metadata (XML schema, etc.)
     
     # Processing status
     is_processed = Column(Boolean, default=False)
@@ -66,7 +66,7 @@ class FileChunk(Base):
     chunk_index = Column(Integer)
     content = Column(Text)
     embedding = Column(Text)  # JSON string of embedding vector
-    metadata = Column(JSON)  # Additional metadata for the chunk
+    chunk_metadata = Column(JSON)  # Additional metadata for the chunk
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -4,7 +4,10 @@ const nextConfig = {
     appDir: true,
   },
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', '*.railway.app'],
+  },
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
 }
 

@@ -16,9 +16,10 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 interface LoginFormProps {
   onLogin: () => void
+  onShowRegister: () => void
 }
 
-export default function LoginForm({ onLogin }: LoginFormProps) {
+export default function LoginForm({ onLogin, onShowRegister }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
 
@@ -94,9 +95,16 @@ export default function LoginForm({ onLogin }: LoginFormProps) {
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-sm text-elite-600 dark:text-gray-400">
+        <p className="text-sm text-elite-600 dark:text-gray-400 mb-4">
           Welcome to KABS Assistant
         </p>
+        <button
+          type="button"
+          onClick={onShowRegister}
+          className="text-sm text-elite-600 dark:text-gray-400 hover:text-elite-800 dark:hover:text-gray-300"
+        >
+          Don't have an account? Sign up
+        </button>
       </div>
     </div>
   )
