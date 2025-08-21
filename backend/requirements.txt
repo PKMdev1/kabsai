@@ -1,6 +1,6 @@
-pip>=23
-setuptools>=65
-wheel
+pip>=23.0
+setuptools>=68.0
+wheel>=0.40
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
